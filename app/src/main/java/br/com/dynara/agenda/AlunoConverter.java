@@ -13,6 +13,7 @@ import br.com.dynara.agenda.modelo.Aluno;
 
 public class AlunoConverter {
     public String toJson(List<Aluno> alunos) {
+
         try {
             JSONStringer jsonStringer = new JSONStringer();
             jsonStringer.object().key("list").array()

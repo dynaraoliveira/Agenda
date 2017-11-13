@@ -11,9 +11,13 @@ import java.util.Scanner;
 
 public class WebClient {
     public String post(String json){
+        String endereco = "https://www.caelum.com.br/mobile";
+        return realizaRequisicao(json, endereco);
+    }
 
+    private String realizaRequisicao(String json, String endereco) {
         try {
-            URL url = new URL("https://www.caelum.com.br/mobile");
+            URL url = new URL(endereco);
 
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 

@@ -4,35 +4,49 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.Toast;
 
 import java.util.List;
-import java.util.jar.Manifest;
 
 import br.com.dynara.agenda.adapter.AlunosAdapter;
 import br.com.dynara.agenda.dao.AlunoDAO;
 import br.com.dynara.agenda.modelo.Aluno;
+import br.com.dynara.agenda.retrofit.RetrofitInicializador;
+import br.com.dynara.agenda.dto.AlunoSync;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class ListaAlunosActivity extends AppCompatActivity {
 
     public static final int CALL_PHONE_CODE = 123;
     public static final int SMS_CODE = 124;
     private ListView listaAlunos;
+    private SwipeRefreshLayout swipe;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_lista_alunos);
+
+        swipe = (SwipeRefreshLayout) findViewById(R.id.swipe_lista_alunos);
+        swipe.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                buscaAlunos();
+            }
+        });
 
         if (ActivityCompat.checkSelfPermission(ListaAlunosActivity.this, android.Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED){
             ActivityCompat.requestPermissions(ListaAlunosActivity.this, new String[]{android.Manifest.permission.RECEIVE_SMS}, SMS_CODE);
@@ -61,6 +75,7 @@ public class ListaAlunosActivity extends AppCompatActivity {
         });
 
         registerForContextMenu(listaAlunos);
+        buscaAlunos();
     }
 
     private void carregaLista() {
@@ -77,6 +92,27 @@ public class ListaAlunosActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         carregaLista();
+    }
+
+    private void buscaAlunos() {
+        Call<AlunoSync> call = new RetrofitInicializador().getAlunoService().lista();
+        call.enqueue(new Callback<AlunoSync>() {
+            @Override
+            public void onResponse(Call<AlunoSync> call, Response<AlunoSync> response) {
+                AlunoSync alunoSync = response.body();
+                AlunoDAO dao = new AlunoDAO(ListaAlunosActivity.this);
+                dao.sincroniza(alunoSync.getAlunos());
+                dao.close();
+                carregaLista();
+                swipe.setRefreshing(false);
+            }
+
+            @Override
+            public void onFailure(Call<AlunoSync> call, Throwable t) {
+                Log.e("onFailure carrega", t.getMessage());
+                swipe.setRefreshing(false);
+            }
+        });
     }
 
 
@@ -135,13 +171,27 @@ public class ListaAlunosActivity extends AppCompatActivity {
         menu.add("Deletar").setOnMenuItemClickListener(new MenuItem.OnMenuItemClickListener() {
             @Override
             public boolean onMenuItemClick(MenuItem item) {
-                AlunoDAO dao = new AlunoDAO(ListaAlunosActivity.this);
-                dao.deletar(aluno);
-                dao.close();
+
+                Call<Void> call = new RetrofitInicializador().getAlunoService().deleta(aluno.getId());
+
+                call.enqueue(new Callback<Void>() {
+                    @Override
+                    public void onResponse(Call<Void> call, Response<Void> response) {
+                        AlunoDAO dao = new AlunoDAO(ListaAlunosActivity.this);
+                        dao.deletar(aluno);
+                        dao.close();
+                        carregaLista();
+                    }
+
+                    @Override
+                    public void onFailure(Call<Void> call, Throwable t) {
+                        Toast.makeText(ListaAlunosActivity.this, "Não foi possível deletar", Toast.LENGTH_SHORT).show();
+                    }
+                });
+
+
 
                 Toast.makeText(ListaAlunosActivity.this, "Aluno " + aluno.getNome() + " deletado", Toast.LENGTH_SHORT).show();
-
-                carregaLista();
                 return false;
             }
         });
