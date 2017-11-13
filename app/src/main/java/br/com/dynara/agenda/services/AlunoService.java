@@ -14,7 +14,6 @@ import retrofit2.http.Path;
  */
 
 public interface AlunoService {
-
     @POST("aluno")
     Call<Void> insere(@Body Aluno aluno);
 
@@ -23,5 +22,4 @@ public interface AlunoService {
 
     @DELETE("aluno/{id}")
     Call<Void> deleta(@Path("id") String id);
-
 }
